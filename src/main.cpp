@@ -11,7 +11,7 @@ int main()
     // Initialisation
     gl::init("TPs de Rendering"); // On crée une fenêtre et on choisit son nom
     gl::maximize_window(); // On peut la maximiser si on veut
-    
+    glEnable(GL_DEPTH_TEST);
     auto camera = gl::Camera{};
     gl::set_events_callbacks({
         camera.events_callbacks(),
@@ -23,6 +23,15 @@ int main()
     
     });
 
+    auto const texture = gl::Texture{
+        gl::TextureSource::File{ // Peut être un fichier, ou directement un tableau de pixels
+            .path           = "res/pierre.png",
+            .flip_y         = true, // Il n'y a pas de convention universelle sur la direction de l'axe Y. Les fichiers (.png, .jpeg) utilisent souvent une direction différente de celle attendue par OpenGL. Ce booléen flip_y est là pour inverser la texture si jamais elle n'apparaît pas dans le bon sens.
+            .texture_format = gl::InternalFormat::RGBA8, // Format dans lequel la texture sera stockée. On pourrait par exemple utiliser RGBA16 si on voulait 16 bits par canal de couleur au lieu de 8. (Mais ça ne sert à rien dans notre cas car notre fichier ne contient que 8 bits par canal, donc on ne gagnerait pas de précision). On pourrait aussi stocker en RGB8 si on ne voulait pas de canal alpha. On utilise aussi parfois des textures avec un seul canal (R8) pour des usages spécifiques.
+        },
+        
+    };
+
 
     auto const rectangle_mesh = gl::Mesh{{
         .vertex_buffers = {{
@@ -32,10 +41,10 @@ int main()
                 +0.5f, -0.5f,0, //1
                 +0.5f, +0.5f,0, //2
                 -0.5f, +0.5f,0, //3
-                -0.5f, -0.5f,+0.5, //4
-                +0.5f, -0.5f,+0.5, //5
-                +0.5f, +0.5f,+0.5, //6
-                -0.5f, +0.5f,+0.5  //7
+                -0.5f, -0.5f,+1, //4
+                +0.5f, -0.5f,+1, //5
+                +0.5f, +0.5f,+1, //6
+                -0.5f, +0.5f,+1  //7
 
             },
         }},
@@ -67,7 +76,7 @@ int main()
         // Rendu à chaque frame
         
         glClearColor(0.f, 0.f, 1.f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glm::mat4 const view_matrix = camera.view_matrix();
 
         glm::mat4 const projection_matrix = glm::infinitePerspective(1.f /*field of view in radians*/, gl::framebuffer_aspect_ratio() /*aspect ratio*/, 0.001f /*near plane*/);
@@ -80,6 +89,9 @@ int main()
         shader.bind();
         shader.set_uniform("aspectRatio",gl::framebuffer_aspect_ratio());
         shader.set_uniform("view_projection_matrix",view_projection_matrix);
+        shader.set_uniform("uv",glm::vec2{1,1});
+        shader.set_uniform("textureCustom", texture);
+        shader.set_uniform("positionTexture", glm::vec2{0.5,0.5});
         rectangle_mesh.draw();
         
     }
