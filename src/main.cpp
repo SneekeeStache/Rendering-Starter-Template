@@ -102,10 +102,10 @@ int main()
         .vertex_buffers = {{
             .layout = {gl::VertexAttribute::Position2D{0}},
             .data   = {
-                -0, -0, //0
-                +1.f, -0, //1
-                +1.f, +1.f, //2
-                -0, +1.f, //3
+                -0.9f, -0.9f, //0
+                +0.9f, -0.9f, //1
+                +0.9f, +0.9f,//2
+                -0.9f, +0.9f,//3
 
             },
         }},
@@ -120,15 +120,17 @@ int main()
         .fragment = gl::ShaderSource::File{"res/fragment.glsl"},
     }};
 
-    
+    auto const QuadShaders = gl::Shader{{
+        .vertex = gl::ShaderSource::File{"res/QuadShaderVertex.glsl"},
+        .fragment = gl::ShaderSource::File{"res/QuadShaderFragment.glsl"},
+    }};
 
     while (gl::window_is_open())
     {
         // Rendu à chaque frame
         
-        //glClearColor(0.f, 0.f, 1.f, 1.f);
-        //
-        
+        glClearColor(0.f, 0.f, 1.f, 1.f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         render_target.render([&]() {
             glClearColor(1.f, 0.f, 0.f, 1.f); // Dessine du rouge, non pas à l'écran, mais sur notre render target
@@ -155,9 +157,9 @@ int main()
             rectangle_mesh.draw();
 
         });
-        glClear(GL_COLOR_BUFFER_BIT);
-        gl::bind_default_shader();
+        QuadShaders.bind();
+        QuadShaders.set_uniform("TextureTarget",render_target.color_texture(0));
+        QuadShaders.set_uniform("aspectRatio",gl::framebuffer_aspect_ratio());
         FrontScreenQuadMesh.draw();
-        
     }
 }
