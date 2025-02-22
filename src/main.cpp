@@ -32,6 +32,38 @@ int main()
         
     };
 
+    auto render_target = gl::RenderTarget{gl::RenderTarget_Descriptor{
+        .width          = gl::framebuffer_width_in_pixels(),
+        .height         = gl::framebuffer_height_in_pixels(),
+        .color_textures = {
+            gl::ColorAttachment_Descriptor{
+                .format  = gl::InternalFormat_Color::RGBA8,
+                .options = {
+                    .minification_filter  = gl::Filter::NearestNeighbour, // On va toujours afficher la texture à la taille de l'écran,
+                    .magnification_filter = gl::Filter::NearestNeighbour, // donc les filtres n'auront pas d'effet. Tant qu'à faire on choisit le moins coûteux.
+                    .wrap_x               = gl::Wrap::ClampToEdge,
+                    .wrap_y               = gl::Wrap::ClampToEdge,
+                },
+            },
+        },
+        .depth_stencil_texture = gl::DepthStencilAttachment_Descriptor{
+            .format  = gl::InternalFormat_DepthStencil::Depth32F,
+            .options = {
+                .minification_filter  = gl::Filter::NearestNeighbour,
+                .magnification_filter = gl::Filter::NearestNeighbour,
+                .wrap_x               = gl::Wrap::ClampToEdge,
+                .wrap_y               = gl::Wrap::ClampToEdge,
+            },
+        },
+    }};
+
+    gl::set_events_callbacks({
+        camera.events_callbacks(),
+        {.on_framebuffer_resized = [&](gl::FramebufferResizedEvent const& e) {
+            if(e.width_in_pixels != 0 && e.height_in_pixels != 0) // OpenGL crash si on tente de faire une render target avec une taille de 0
+                render_target.resize(e.width_in_pixels, e.height_in_pixels);
+        }},
+    });
 
     auto const rectangle_mesh = gl::Mesh{{
         .vertex_buffers = {{
@@ -66,33 +98,66 @@ int main()
         },
     }};
 
+    auto const FrontScreenQuadMesh = gl::Mesh{{
+        .vertex_buffers = {{
+            .layout = {gl::VertexAttribute::Position2D{0}},
+            .data   = {
+                -0, -0, //0
+                +1.f, -0, //1
+                +1.f, +1.f, //2
+                -0, +1.f, //3
+
+            },
+        }},
+        .index_buffer   = {
+            0, 1, 2, // Indices du premier triangle : on utilise le 1er, 2ème et 3ème sommet
+            0, 2, 3  // Indices du deuxième triangle : on utilise le 1er, 3ème et 4ème sommet
+        },
+    }};
+
     auto const shader = gl::Shader{{
         .vertex   = gl::ShaderSource::File{"res/vertex.glsl"},
         .fragment = gl::ShaderSource::File{"res/fragment.glsl"},
     }};
 
+    
+
     while (gl::window_is_open())
     {
         // Rendu à chaque frame
         
-        glClearColor(0.f, 0.f, 1.f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glm::mat4 const view_matrix = camera.view_matrix();
+        //glClearColor(0.f, 0.f, 1.f, 1.f);
+        //
+        
+        
+        render_target.render([&]() {
+            glClearColor(1.f, 0.f, 0.f, 1.f); // Dessine du rouge, non pas à l'écran, mais sur notre render target
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            // ... mettez tout votre code de rendu ici
 
-        glm::mat4 const projection_matrix = glm::infinitePerspective(1.f /*field of view in radians*/, gl::framebuffer_aspect_ratio() /*aspect ratio*/, 0.001f /*near plane*/);
-        glm::mat4 const rotation = glm::rotate(glm::mat4{1.f}, gl::time_in_seconds() /*angle de la rotation*/, glm::vec3{0.f, 0.f, 1.f} /* axe autour duquel on tourne */);
-        glm::mat4 const translation = glm::translate(glm::mat4{1.f}, glm::vec3{0.f, 1.f, 0.f} /* déplacement */);    
+            glm::mat4 const view_matrix = camera.view_matrix();
 
-        glm::mat4 const view_projection_matrix = projection_matrix*view_matrix;
-        glm::mat4 const view_projection_matrix_Tran_Rota = projection_matrix*view_matrix*(translation*rotation);
+            glm::mat4 const projection_matrix = glm::infinitePerspective(1.f /*field of view in radians*/, gl::framebuffer_aspect_ratio() /*aspect ratio*/, 0.001f /*near plane*/);
+            glm::mat4 const rotation = glm::rotate(glm::mat4{1.f}, gl::time_in_seconds() /*angle de la rotation*/, glm::vec3{0.f, 0.f, 1.f} /* axe autour duquel on tourne */);
+            glm::mat4 const translation = glm::translate(glm::mat4{1.f}, glm::vec3{0.f, 1.f, 0.f} /* déplacement */);    
 
-        shader.bind();
-        shader.set_uniform("aspectRatio",gl::framebuffer_aspect_ratio());
-        shader.set_uniform("view_projection_matrix",view_projection_matrix);
-        shader.set_uniform("uv",glm::vec2{1,1});
-        shader.set_uniform("textureCustom", texture);
-        shader.set_uniform("positionTexture", glm::vec2{0.5,0.5});
-        rectangle_mesh.draw();
+            glm::mat4 const view_projection_matrix = projection_matrix*view_matrix;
+            glm::mat4 const view_projection_matrix_Tran_Rota = projection_matrix*view_matrix*(translation*rotation);
+        
+            shader.bind();
+            shader.set_uniform("aspectRatio",gl::framebuffer_aspect_ratio());
+            shader.set_uniform("view_projection_matrix",view_projection_matrix);
+            shader.set_uniform("uv",glm::vec2{1,1});
+            shader.set_uniform("textureCustom", texture);
+            shader.set_uniform("positionTexture", glm::vec2{0.5,0.5});
+        
+
+            rectangle_mesh.draw();
+
+        });
+        glClear(GL_COLOR_BUFFER_BIT);
+        gl::bind_default_shader();
+        FrontScreenQuadMesh.draw();
         
     }
 }
