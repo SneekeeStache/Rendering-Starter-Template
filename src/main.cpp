@@ -11,8 +11,9 @@ int main()
     // Initialisation
     gl::init("TPs de Rendering"); // On crée une fenêtre et on choisit son nom
     gl::maximize_window(); // On peut la maximiser si on veut
-    glEnable(GL_DEPTH_TEST);
+
     auto camera = gl::Camera{};
+    //gl::set_events_callbacks({camera.events_callbacks()});
     gl::set_events_callbacks({
         camera.events_callbacks(),
         {
@@ -20,8 +21,51 @@ int main()
                 std::cout << "Mouse pressed at " << e.position.x << " " << e.position.y << '\n';
             },
         },
-    
     });
+
+    glEnable(GL_DEPTH_TEST);
+
+    auto const shader = gl::Shader{{
+        .vertex   = gl::ShaderSource::File{"res/vertex.glsl"},
+        .fragment = gl::ShaderSource::File{"res/fragment.glsl"},
+    }};
+
+    auto const render_shader = gl::Shader{{
+        .vertex   = gl::ShaderSource::File{"res/QuadShaderVertex.glsl"},
+        .fragment = gl::ShaderSource::File{"res/QuadShaderFragment.glsl"},
+    }};
+
+    auto const uv_mesh = gl::Mesh{{
+        .vertex_buffers = {{
+            .layout = {gl::VertexAttribute::Position2D{0}, gl::VertexAttribute::UV{1}},
+            .data   = {
+                -1.0f, -1.0f, 0.8f, 0.8f, // Position2D du 1er sommet
+                +1.0f, -1.0f, +0.9f, 0.8f, // Position2D du 2ème sommet
+                +1.0f, +1.0f, +0.9f, +0.9f, // Position2D du 3ème sommet
+                -1.0f, +1.0f, 0.8f, +0.9f  // Position2D du 4ème sommet
+            },
+        }},
+        .index_buffer   = {
+            0, 1, 2, // Indices du premier triangle : on utilise le 1er, 2ème et 3ème sommet
+            0, 2, 3  // Indices du deuxième triangle : on utilise le 1er, 3ème et 4ème sommet
+        },
+    }};
+
+    auto const render_mesh = gl::Mesh{{
+        .vertex_buffers = {{
+            .layout = {gl::VertexAttribute::Position2D{2}, gl::VertexAttribute::UV{1}},
+            .data   = {
+                -1.0f, -1.0f, 0.0f, 0.0f, // Position2D du 1er sommet
+                +1.0f, -1.0f, +1.0f, 0.0f, // Position2D du 2ème sommet
+                +1.0f, +1.0f, +1.0f, +1.0f, // Position2D du 3ème sommet
+                -1.0f, +1.0f, 0.0f, +1.0f  // Position2D du 4ème sommet
+            },
+        }},
+        .index_buffer   = {
+            0, 1, 2, // Indices du premier triangle : on utilise le 1er, 2ème et 3ème sommet
+            0, 2, 3  // Indices du deuxième triangle : on utilise le 1er, 3ème et 4ème sommet
+        },
+    }};
 
     auto const texture = gl::Texture{
         gl::TextureSource::File{ // Peut être un fichier, ou directement un tableau de pixels
@@ -29,7 +73,12 @@ int main()
             .flip_y         = true, // Il n'y a pas de convention universelle sur la direction de l'axe Y. Les fichiers (.png, .jpeg) utilisent souvent une direction différente de celle attendue par OpenGL. Ce booléen flip_y est là pour inverser la texture si jamais elle n'apparaît pas dans le bon sens.
             .texture_format = gl::InternalFormat::RGBA8, // Format dans lequel la texture sera stockée. On pourrait par exemple utiliser RGBA16 si on voulait 16 bits par canal de couleur au lieu de 8. (Mais ça ne sert à rien dans notre cas car notre fichier ne contient que 8 bits par canal, donc on ne gagnerait pas de précision). On pourrait aussi stocker en RGB8 si on ne voulait pas de canal alpha. On utilise aussi parfois des textures avec un seul canal (R8) pour des usages spécifiques.
         },
-        
+        gl::TextureOptions{
+            .minification_filter  = gl::Filter::NearestNeighbour, // Comment on va moyenner les pixels quand on voit l'image de loin ?
+            .magnification_filter = gl::Filter::NearestNeighbour, // Comment on va interpoler entre les pixels quand on zoom dans l'image ?
+            .wrap_x               = gl::Wrap::Repeat,   // Quelle couleur va-t-on lire si jamais on essaye de lire en dehors de la texture ?
+            .wrap_y               = gl::Wrap::Repeat,   // Idem, mais sur l'axe Y. En général on met le même wrap mode sur les deux axes.
+        }
     };
 
     auto render_target = gl::RenderTarget{gl::RenderTarget_Descriptor{
@@ -65,101 +114,71 @@ int main()
         }},
     });
 
-    auto const rectangle_mesh = gl::Mesh{{
+    auto const cube_mesh = gl::Mesh{{
         .vertex_buffers = {{
-            .layout = {gl::VertexAttribute::Position3D{0}},
+            .layout = {gl::VertexAttribute::Position3D{0}, gl::VertexAttribute::UV{1}},
             .data   = {
-                -0.5f, -0.5f,0, //0
-                +0.5f, -0.5f,0, //1
-                +0.5f, +0.5f,0, //2
-                -0.5f, +0.5f,0, //3
-                -0.5f, -0.5f,+1, //4
-                +0.5f, -0.5f,+1, //5
-                +0.5f, +0.5f,+1, //6
-                -0.5f, +0.5f,+1  //7
-
+                -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,// Position3D du 1er sommet
+                +0.5f, -0.5f, -0.5f,  1.0f, 0.0f,// Position3D du 2ème sommet
+                +0.5f, +0.5f, -0.5f,  1.0f, 1.0f,// Position3D du 3ème sommet
+                -0.5f, +0.5f, -0.5f,  0.0f, 1.0f,// Position3D du 4ème sommet
+                -0.5f, -0.5f, +0.5f,  0.0f, 0.0f,// Position3D du 5ème sommet
+                +0.5f, -0.5f, +0.5f,  1.0f, 0.0f,// Position3D du 6ème sommet
+                +0.5f, +0.5f, +0.5f,  1.0f, 1.0f,// Position3D du 7ème sommet
+                -0.5f, +0.5f, +0.5f,  0.0f, 1.0f,// Position3D du 8ème sommet
             },
         }},
         .index_buffer   = {
             0, 1, 2, // Indices du premier triangle : on utilise le 1er, 2ème et 3ème sommet
             0, 2, 3,  // Indices du deuxième triangle : on utilise le 1er, 3ème et 4ème sommet
-            0, 3, 7,
-            0, 4, 7,
-            0, 4, 5,
+            4, 5, 6,
+            4, 6, 7,
+            1, 2, 6,
+            1, 5, 6,
             0, 1, 5,
-            2, 1, 5,
-            2, 6, 5,
-            2, 6, 7,
+            0, 4, 5,
+            3, 0, 4,
+            3, 7, 4,
             2, 3, 7,
-            7, 5, 4,
-            7, 5, 6
-
-
+            2, 6, 7
         },
-    }};
-
-    auto const FrontScreenQuadMesh = gl::Mesh{{
-        .vertex_buffers = {{
-            .layout = {gl::VertexAttribute::Position2D{0}},
-            .data   = {
-                -0.9f, -0.9f, //0
-                +0.9f, -0.9f, //1
-                +0.9f, +0.9f,//2
-                -0.9f, +0.9f,//3
-
-            },
-        }},
-        .index_buffer   = {
-            0, 1, 2, // Indices du premier triangle : on utilise le 1er, 2ème et 3ème sommet
-            0, 2, 3  // Indices du deuxième triangle : on utilise le 1er, 3ème et 4ème sommet
-        },
-    }};
-
-    auto const shader = gl::Shader{{
-        .vertex   = gl::ShaderSource::File{"res/vertex.glsl"},
-        .fragment = gl::ShaderSource::File{"res/fragment.glsl"},
-    }};
-
-    auto const QuadShaders = gl::Shader{{
-        .vertex = gl::ShaderSource::File{"res/QuadShaderVertex.glsl"},
-        .fragment = gl::ShaderSource::File{"res/QuadShaderFragment.glsl"},
     }};
 
     while (gl::window_is_open())
     {
         // Rendu à chaque frame
+        glm::mat4 const view_matrix = camera.view_matrix();
+        glm::mat4 const projection_matrix = glm::infinitePerspective(1.f /*field of view in radians*/, gl::framebuffer_aspect_ratio() /*aspect ratio*/, 0.001f /*near plane*/);
+
+        glm::mat4 const view_projection_matrix = projection_matrix * view_matrix;
         
-        glClearColor(0.f, 0.f, 1.f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glm::mat4 const rotation = glm::rotate(glm::mat4{1.f}, gl::time_in_seconds() /*angle de la rotation*/, glm::vec3{0.f, 0.f, 1.f} /* axe autour duquel on tourne */);
+        glm::mat4 const translation = glm::translate(glm::mat4{1.f}, glm::vec3{0.f, 1.f, 0.f} /* déplacement */);   
+
+        glm::mat4 const model_matrix = translation * rotation; 
+        glm::mat4 const model_view_projection_matrix = view_projection_matrix * model_matrix;
+
+        glClearColor(0.6f, 0.2f, 0.5f, 1.f); // Choisis la couleur à utiliser. Les paramètres sont R, G, B, A avec des valeurs qui vont de 0 à 1
+        glClear(GL_COLOR_BUFFER_BIT); // Exécute concrètement l'action d'appliquer sur tout l'écran la couleur choisie au-dessus
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Vient remplacer glClear(GL_COLOR_BUFFER_BIT);
         
+        shader.bind(); // On a besoin qu'un shader soit bind (i.e. "actif") avant de draw(). On en reparle dans la section d'après.
+        shader.set_uniform("view_projection_matrix", model_view_projection_matrix);
+        shader.set_uniform("aspect_ratio",gl::framebuffer_aspect_ratio());
+        shader.set_uniform("time", gl::time_in_seconds());
+        shader.set_uniform("my_texture", texture);
+        //uv_mesh.draw(); // C'est ce qu'on appelle un "draw call" : on envoie l'instruction à la carte graphique de dessiner notre mesh.
+        //cube_mesh.draw();
+        
+
         render_target.render([&]() {
             glClearColor(1.f, 0.f, 0.f, 1.f); // Dessine du rouge, non pas à l'écran, mais sur notre render target
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            // ... mettez tout votre code de rendu ici
-
-            glm::mat4 const view_matrix = camera.view_matrix();
-
-            glm::mat4 const projection_matrix = glm::infinitePerspective(1.f /*field of view in radians*/, gl::framebuffer_aspect_ratio() /*aspect ratio*/, 0.001f /*near plane*/);
-            glm::mat4 const rotation = glm::rotate(glm::mat4{1.f}, gl::time_in_seconds() /*angle de la rotation*/, glm::vec3{0.f, 0.f, 1.f} /* axe autour duquel on tourne */);
-            glm::mat4 const translation = glm::translate(glm::mat4{1.f}, glm::vec3{0.f, 1.f, 0.f} /* déplacement */);    
-
-            glm::mat4 const view_projection_matrix = projection_matrix*view_matrix;
-            glm::mat4 const view_projection_matrix_Tran_Rota = projection_matrix*view_matrix*(translation*rotation);
-        
-            shader.bind();
-            shader.set_uniform("aspectRatio",gl::framebuffer_aspect_ratio());
-            shader.set_uniform("view_projection_matrix",view_projection_matrix);
-            shader.set_uniform("uv",glm::vec2{1,1});
-            shader.set_uniform("textureCustom", texture);
-            shader.set_uniform("positionTexture", glm::vec2{0.5,0.5});
-        
-
-            rectangle_mesh.draw();
-
+            cube_mesh.draw();
         });
-        QuadShaders.bind();
-        QuadShaders.set_uniform("TextureTarget",render_target.color_texture(0));
-        QuadShaders.set_uniform("aspectRatio",gl::framebuffer_aspect_ratio());
-        FrontScreenQuadMesh.draw();
+        
+        render_shader.bind();
+        render_shader.set_uniform("render_texture", render_target.color_texture(0));
+        render_mesh.draw();
     }
 }
