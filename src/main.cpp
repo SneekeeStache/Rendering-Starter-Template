@@ -212,7 +212,8 @@ int main()
         shader.set_uniform("aspect_ratio",gl::framebuffer_aspect_ratio());
         shader.set_uniform("time", gl::time_in_seconds());
         shader.set_uniform("my_texture", texture);
-        shader.set_uniform("light_direction",glm::normalize(glm::vec3(0.2, 0.3, -1.)));
+        shader.set_uniform("light_direction",glm::normalize(glm::vec3(0.0, 0.0, -1)));
+        shader.set_uniform("positionPointLight",glm::vec3(1,0,0));
         //uv_mesh.draw(); // C'est ce qu'on appelle un "draw call" : on envoie l'instruction à la carte graphique de dessiner notre mesh.
         //cube_mesh.draw();
         

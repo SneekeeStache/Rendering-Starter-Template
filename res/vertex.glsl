@@ -17,7 +17,7 @@ void main()
 {
     vec3 position = in_position;
     uv = uv_position;
-    //vertex_position = in_position;
+    vertex_position = in_position;
 
     //position.x += 0.4;
     //position.y += 0.4; 
