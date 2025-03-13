@@ -18,7 +18,7 @@ void main()
     //overlay_color = vec4(0.2, 0.8, 0.4, 0.1);
     float grayscale = dot(render_color.rgb, vec3(0.299, 0.587, 0.114));
     //out_render_color = vec4(vec3(grayscale), render_color.a);
-    out_render_color = vec4(render_color.r, 0.0, 0.0, render_color.a);
+    out_render_color = vec4(render_color.r, render_color.g, render_color.b, render_color.a);
 }
 
     
